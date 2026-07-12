@@ -1,0 +1,54 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: fiscal-reporting-platform
+
+  datasource:
+    # Railway's postgres:15-alpine image doesn't configure SSL by default —
+    # sslmode=disable avoids the handshake failure (same fix as SecureShield).
+    url: ${JDBC_DATABASE_URL:jdbc:postgresql://localhost:5432/fiscal?sslmode=disable}
+    username: ${JDBC_DATABASE_USERNAME:postgres}
+    password: ${JDBC_DATABASE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # schema is owned by Flyway, not Hibernate
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+# Public key used to verify JWTs issued by SecureShield. Loaded via a
+# dual-strategy RsaKeyConfig bean: Base64 env var first, classpath PEM
+# fallback — mirrors the pattern used in SecureShield itself.
+security:
+  jwt:
+    public-key-b64: ${SHIELD_JWT_PUBLIC_KEY_B64:}
+    public-key-path: classpath:keys/shield-public-key.pem
+    expected-issuer: ${SHIELD_JWT_ISSUER:secureshield-api}
+
+# Base URL of SecureShield, used only for outbound calls this service makes
+# back to SecureShield (e.g. writing security-relevant audit events).
+secureshield:
+  base-url: ${SECURESHIELD_BASE_URL:https://shield-api-production.up.railway.app}
+
+logging:
+  level:
+    com.portfolio.fiscal: INFO
+    org.springframework.security: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
