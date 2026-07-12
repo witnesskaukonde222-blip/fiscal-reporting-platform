@@ -30,14 +30,14 @@ public class InvoiceService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public InvoiceService(InvoiceRepository invoiceRepository,
-                           InvoiceLineItemRepository lineItemRepository,
-                           CustomerRepository customerRepository,
-                           TaxCodeRepository taxCodeRepository,
-                           FiscalDayService fiscalDayService,
-                           HashChainService hashChainService,
-                           VatCalculationService vatCalculationService,
-                           QrCodeService qrCodeService,
-                           AuditLogService auditLogService) {
+                          InvoiceLineItemRepository lineItemRepository,
+                          CustomerRepository customerRepository,
+                          TaxCodeRepository taxCodeRepository,
+                          FiscalDayService fiscalDayService,
+                          HashChainService hashChainService,
+                          VatCalculationService vatCalculationService,
+                          QrCodeService qrCodeService,
+                          AuditLogService auditLogService) {
         this.invoiceRepository = invoiceRepository;
         this.lineItemRepository = lineItemRepository;
         this.customerRepository = customerRepository;
@@ -55,6 +55,11 @@ public class InvoiceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + request.customerId()));
 
         FiscalDay fiscalDay = fiscalDayService.getOrOpenCurrentFiscalDay(orgId);
+        // Lock this fiscal day's row for the rest of the transaction. Any other
+        // concurrent invoice creation targeting the same fiscal day blocks here
+        // until this transaction commits, which is what makes the counter reads
+        // below safe from duplicate-number races.
+        fiscalDay = fiscalDayService.lockFiscalDay(fiscalDay.getId());
 
         Invoice invoice = new Invoice();
         invoice.setOrgId(orgId);

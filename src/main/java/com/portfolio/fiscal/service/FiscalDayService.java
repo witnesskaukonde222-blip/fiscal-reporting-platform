@@ -47,6 +47,18 @@ public class FiscalDayService {
         return fiscalDayRepository.save(day);
     }
 
+    /**
+     * Acquires a row-level lock on the fiscal day. Must be called inside the
+     * same transaction as the counter reads that follow it, and before those
+     * reads — otherwise two concurrent invoice creations can both read the
+     * same "current max" counter and collide.
+     */
+    @Transactional
+    public FiscalDay lockFiscalDay(UUID fiscalDayId) {
+        return fiscalDayRepository.findByIdForUpdate(fiscalDayId)
+                .orElseThrow(() -> new IllegalArgumentException("Fiscal day not found: " + fiscalDayId));
+    }
+
     @Transactional
     public FiscalDay closeFiscalDay(UUID fiscalDayId) {
         FiscalDay day = fiscalDayRepository.findById(fiscalDayId)
